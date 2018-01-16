@@ -29,10 +29,10 @@ public enum HidingNavigationForegroundAction {
 
 open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
 	// The view controller that is part of the navigation stack
-	unowned var viewController: UIViewController
+	weak var viewController: UIViewController?
 	
 	// The scrollView that will drive the contraction/expansion
-	unowned var scrollView: UIScrollView
+	weak var scrollView: UIScrollView?
 	
 	// The extension view to be shown beneath the navbar
 	weak var extensionView: UIView?
@@ -111,7 +111,7 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	deinit {
 		NotificationCenter.default.removeObserver(self)
 		if let panGesture = panGesture {
-			scrollView.removeGestureRecognizer(panGesture)
+			scrollView?.removeGestureRecognizer(panGesture)
 		}
 	}
 	
@@ -120,8 +120,8 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	open func manageBottomBar(_ view: UIView){
 		tabBarController = HidingViewController(view: view)
 		tabBarController?.contractsUpwards = false
-		tabBarController?.expandedCenter = {[weak self] (view: UIView) -> CGPoint in
-			let height = self?.viewController.view.frame.size.height ?? 0
+		tabBarController?.expandedCenter = { [weak self](view: UIView) -> CGPoint in
+			let height = self?.viewController?.view.frame.size.height ?? 0
 			let point = CGPoint(x: view.bounds.midX, y: height - view.bounds.midY)
 			
 			return point
@@ -157,6 +157,10 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	}
 	
 	open func updateValues()	{
+    guard let scrollView = scrollView else {
+      return
+    }
+
 		isUpdatingValues = true
 		
 		var scrolledToTop = false
@@ -229,6 +233,9 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	//MARK: Private methods
 	
 	fileprivate func isViewControllerVisible() -> Bool {
+    guard let viewController = viewController else {
+      return false
+    }
 		return viewController.isViewLoaded && viewController.view.window != nil
 	}
 	
@@ -243,6 +250,9 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	
 	fileprivate func shouldHandleScrolling() -> Bool {
 		// if scrolling down past top
+    guard let scrollView = scrollView else {
+      return false
+    }
 		if scrollView.contentOffset.y <= -scrollViewContentInset.top && currentState == .Open {
 			return false
 		}
@@ -260,6 +270,10 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	}
 	
 	fileprivate func handleScrolling(){
+    guard let scrollView = scrollView else {
+      return
+    }
+
 		if shouldHandleScrolling() == false {
 			return
 		}
@@ -343,6 +357,9 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	}
 	
 	fileprivate func updateScrollContentInsetTop(_ top: CGFloat) {
+        guard let scrollView = scrollView else {
+            return
+        }
         let top = adjustTopInset(top)
         
         let contentInset = UIEdgeInsets(top: top, left: scrollViewContentInset.top, bottom: scrollViewContentInset.left, right: scrollViewContentInset.right)
@@ -350,7 +367,7 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
             return
         }
         
-        if viewController.automaticallyAdjustsScrollViewInsets {
+        if viewController?.automaticallyAdjustsScrollViewInsets == true {
             var contentInset = scrollViewContentInset
             contentInset.top = top
             scrollView.contentInset = contentInset
@@ -362,6 +379,9 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 	}
 	
 	fileprivate func handleScrollingEnded(_ velocity: CGFloat) {
+    guard let scrollView = scrollView else {
+      return
+    }
 		let minVelocity: CGFloat = 500.0
 		if isViewControllerVisible() == false || (navBarController.isContracted() && velocity < minVelocity) {
 			return
@@ -387,10 +407,10 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
 			
 			UIView.animate(withDuration: 0.2, animations: {
 				self.updateScrollContentInsetTop(top)
-				self.scrollView.contentOffset = newContentOffset
+				self.scrollView?.contentOffset = newContentOffset
 			})
             
-            previousYOffset = CGFloat.nan
+      previousYOffset = CGFloat.nan
 		}
 	}
 	
@@ -419,15 +439,15 @@ open class HidingNavigationBarManager: NSObject, UIScrollViewDelegate, UIGesture
     
     var scrollViewContentInset: UIEdgeInsets {
         if #available(iOS 11.0, *) {
-            return scrollView.adjustedContentInset
+            return scrollView?.adjustedContentInset ?? .zero
         } else {
-            return scrollView.contentInset
+            return scrollView?.contentInset ?? .zero
         }
     }
     
     fileprivate func adjustTopInset(_ top: CGFloat) -> CGFloat {
         if #available(iOS 11.0, *) {
-            return top - scrollView.safeAreaInsets.top  // subtract safeAreaInsets for ios11
+            return top - (scrollView?.safeAreaInsets.top ?? 0)  // subtract safeAreaInsets for ios11
         }
         return top
     }
